@@ -2,6 +2,47 @@ CREATE USER C##project IDENTIFIED BY Contrasena;
 ALTER USER C##LAB1 QUOTA UNLIMITED ON USERS;
 GRANT DBA TO "C##PROJECT";
 
+CREATE OR REPLACE PROCEDURE pro_config_table (table_name IN varchar2)
+AS 
+BEGIN 
+	pro_add_binnacle_data(table_name);
+	pro_create_increment(table_name);
+	pro_create_trigger_autoincrement(table_name);
+END;
+
+
+CREATE OR REPLACE PROCEDURE pro_create_increment(table_name IN varchar2) AS
+query_data varchar(1000);
+BEGIN
+	query_data := 'CREATE SEQUENCE SEQ_' || table_name || ' START WITH 1 INCREMENT BY 1';
+	EXECUTE IMMEDIATE query_data;
+   DBMS_OUTPUT.PUT_LINE('Secuencia creada para la tabla ' || table_name);
+  EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error al crear la secuencia para la tabla ' || table_name || ': ' || SQLERRM);
+END;
+
+CREATE OR REPLACE PROCEDURE pro_create_trigger_autoincrement(table_name IN VARCHAR2) AS
+    query_data VARCHAR2(1000);
+BEGIN
+    -- Crear el trigger para la tabla especificada
+    query_data := 'CREATE OR REPLACE TRIGGER TRG_' || table_name || '_BI ' ||
+                  'BEFORE INSERT ON ' || table_name || ' ' ||
+                  'FOR EACH ROW ' ||
+                  'BEGIN ' ||
+                  '   IF :NEW.id IS NULL THEN ' ||  -- Solo autoincrementa si el id no es proporcionado
+                  '       SELECT SEQ_' || table_name || '.NEXTVAL INTO :NEW.id FROM dual; ' ||
+                  '   END IF; ' ||
+                  'END;';
+
+    EXECUTE IMMEDIATE query_data;
+    DBMS_OUTPUT.PUT_LINE('Trigger autoincrementable creado para la tabla ' || table_name);
+   EXCEPTION
+    -- Manejo de errores
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error al crear el trigger para la tabla ' || table_name || ': ' || SQLERRM);
+END;
+
 CREATE OR REPLACE PROCEDURE pro_add_binnacle_data(tableName IN VARCHAR2) AS
     query_data VARCHAR2(1000);
 BEGIN
@@ -193,7 +234,49 @@ CREATE TABLE recommended_medication(
 	CONSTRAINT rec_med_medicine_id FOREIGN KEY (medicine_id) REFERENCES medicine(id)
 );
 
-BEGIN 
-	pro_add_binnacle_data('users');
-	addBinnacleData('rol');
+CREATE TABLE binnacle_header(
+	id int PRIMARY KEY,
+	table_name varchar(20) NOT NULL,
+	operation char(1) NOT NULL,
+	day_operation DATE NOT null,
+	register_id int NOT null,
+	user_id int NOT null,
+	ip varchar(30) NOT null,
+	CONSTRAINT b_header_user_id FOREIGN KEY (user_id) REFERENCES users(id) 
+);
+
+CREATE TABLE binnacle_body(
+	id int PRIMARY KEY,
+	field varchar(20) NOT null,
+	previous_value varchar(255),
+	new_value varchar(255) NOT null,
+	binnacle_header_id int NOT NULL,
+	CONSTRAINT binn_body_binn_header_id FOREIGN KEY (binnacle_header_id) REFERENCES binnacle_header(id)
+);
+
+BEGIN
+	pro_config_table('users');
 END;
+
+BEGIN
+    pro_config_table('users');
+    pro_config_table('rol');
+    pro_config_table('blood_type');
+    pro_config_table('specialty');
+    pro_add_binnacle_data('presc_status');
+    pro_add_binnacle_data('dis_class');
+    pro_add_binnacle_data('med_brand');
+    pro_add_binnacle_data('pharma_form');
+    pro_add_binnacle_data('dose_unit');
+    pro_add_binnacle_data('sex');
+    pro_add_binnacle_data('doctor');
+    pro_add_binnacle_data('patient');
+    pro_add_binnacle_data('consultation');
+    pro_add_binnacle_data('diseases');
+    pro_add_binnacle_data('pharma_form_dose_unit');
+    pro_add_binnacle_data('medicine');
+    pro_add_binnacle_data('diseases_medicine');
+    pro_add_binnacle_data('diagnosed_disease');
+    pro_add_binnacle_data('recommended_medication');    
+END;
+/
