@@ -2,7 +2,16 @@ CREATE USER C##project IDENTIFIED BY Contrasena;
 ALTER USER C##LAB1 QUOTA UNLIMITED ON USERS;
 GRANT DBA TO "C##PROJECT";
 
+
+CREATE OR REPLACE PROCEDURE pro_insert_binnacle(oldValue IN RECORD,newValue IN RECORD, fieldID IN varchar(10) )
+AS
+BEGIN 
+	FOR colum_name IN (SELECT * FROM all_)
+END;
+
+
 CREATE OR REPLACE PROCEDURE pro_config_table (table_name IN varchar2)
+AUTHID CURRENT_USER
 AS 
 BEGIN 
 	pro_add_binnacle_data(table_name);
@@ -11,18 +20,23 @@ BEGIN
 END;
 
 
-CREATE OR REPLACE PROCEDURE pro_create_increment(table_name IN varchar2) AS
+CREATE OR REPLACE PROCEDURE pro_create_increment(table_name IN varchar2) 
+AUTHID CURRENT_USER
+AS
 query_data varchar(1000);
 BEGIN
 	query_data := 'CREATE SEQUENCE SEQ_' || table_name || ' START WITH 1 INCREMENT BY 1';
-	EXECUTE IMMEDIATE query_data;
+	DBMS_OUTPUT.PUT_LINE(query_data);
+   EXECUTE IMMEDIATE query_data;
    DBMS_OUTPUT.PUT_LINE('Secuencia creada para la tabla ' || table_name);
   EXCEPTION
     WHEN OTHERS THEN
         DBMS_OUTPUT.PUT_LINE('Error al crear la secuencia para la tabla ' || table_name || ': ' || SQLERRM);
 END;
 
-CREATE OR REPLACE PROCEDURE pro_create_trigger_autoincrement(table_name IN VARCHAR2) AS
+CREATE OR REPLACE PROCEDURE pro_create_trigger_autoincrement(table_name IN VARCHAR2) 
+AUTHID CURRENT_USER
+AS
     query_data VARCHAR2(1000);
 BEGIN
     -- Crear el trigger para la tabla especificada
@@ -47,7 +61,7 @@ CREATE OR REPLACE PROCEDURE pro_add_binnacle_data(tableName IN VARCHAR2) AS
     query_data VARCHAR2(1000);
 BEGIN
 	query_data := 'ALTER TABLE ' || tableName || 
-                ' ADD ( create_at DATE,'||
+                ' ADD ( create_at DATE default CURRENT_DATE,'||
 				' create_user_id INT, ' ||
                 ' update_at DATE, ' ||
                 ' update_user_id INT, ' ||
@@ -81,7 +95,6 @@ CREATE TABLE  rol(
 	name varchar(50) NOT NULL
 );
 
-
 CREATE TABLE users(
 	id int PRIMARY KEY,
 	username varchar(50) NOT NULL,
@@ -91,6 +104,7 @@ CREATE TABLE users(
 	rol_id int NOT NULL,
 	CONSTRAINT users_rol_id FOREIGN KEY (rol_id) REFERENCES rol(id)	
 );
+
 
 CREATE TABLE blood_type(
 	id int PRIMARY KEY ,
@@ -254,29 +268,30 @@ CREATE TABLE binnacle_body(
 	CONSTRAINT binn_body_binn_header_id FOREIGN KEY (binnacle_header_id) REFERENCES binnacle_header(id)
 );
 
-BEGIN
-	pro_config_table('users');
-END;
 
 BEGIN
-    pro_config_table('users');
-    pro_config_table('rol');
-    pro_config_table('blood_type');
-    pro_config_table('specialty');
-    pro_add_binnacle_data('presc_status');
-    pro_add_binnacle_data('dis_class');
-    pro_add_binnacle_data('med_brand');
-    pro_add_binnacle_data('pharma_form');
-    pro_add_binnacle_data('dose_unit');
-    pro_add_binnacle_data('sex');
-    pro_add_binnacle_data('doctor');
-    pro_add_binnacle_data('patient');
-    pro_add_binnacle_data('consultation');
-    pro_add_binnacle_data('diseases');
-    pro_add_binnacle_data('pharma_form_dose_unit');
-    pro_add_binnacle_data('medicine');
-    pro_add_binnacle_data('diseases_medicine');
-    pro_add_binnacle_data('diagnosed_disease');
-    pro_add_binnacle_data('recommended_medication');    
+	pro_add_binnacle_data('doctor');
+	pro_add_binnacle_data('patient');
+	pro_add_binnacle_data('diseases_medicine');
+	pro_create_increment('binnacle_header');
+	pro_create_trigger_autoincrement('binnacle_header');
+	pro_create_increment('binnacle_body');
+	pro_create_trigger_autoincrement('binnacle_body');
+	pro_config_table('rol');
+	pro_config_table('users');
+	pro_config_table('blood_type');
+	pro_config_table('specialty');
+	pro_config_table('presc_status');
+	pro_config_table('dis_class');
+	pro_config_table('med_brand');
+	pro_config_table('pharma_form');
+	pro_config_table('dose_unit');
+	pro_config_table('sex');
+	pro_config_table('consultation');
+	pro_config_table('diseases');
+	pro_config_table('pharma_form_dose_unit');
+	pro_config_table('medicine');
+	pro_config_table('diagnosed_disease');
+	pro_config_table('recommended_medication');
 END;
-/
+
