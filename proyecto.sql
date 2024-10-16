@@ -2,12 +2,50 @@ CREATE USER C##project IDENTIFIED BY Contrasena;
 ALTER USER C##LAB1 QUOTA UNLIMITED ON USERS;
 GRANT DBA TO "C##PROJECT";
 
-
-CREATE OR REPLACE PROCEDURE pro_insert_binnacle(oldValue IN RECORD,newValue IN RECORD, fieldID IN varchar(10) )
+CREATE OR REPLACE PROCEDURE pro_create_trigger_binnacle(
+    table_name IN VARCHAR2,
+    fieldID IN VARCHAR2
+) 
+AUTHID CURRENT_USER
 AS
-BEGIN 
-	FOR colum_name IN (SELECT * FROM all_)
+    query_data CLOB;
+BEGIN
+    -- Construcción del cuerpo del trigger
+    query_data := 'CREATE OR REPLACE TRIGGER TRG_' || table_name || '_BINNACLE ' ||
+                  'AFTER UPDATE ON ' || table_name || ' ' ||
+                  'FOR EACH ROW ' ||
+                  'DECLARE ' ||
+                  'id_register INT; ' ||
+                  'BEGIN ' ||
+                  'SELECT SEQ_binnacle_header.NEXTVAL INTO id_register FROM dual; ' ||
+                  'INSERT INTO BINNACLE_HEADER (ID, TABLE_NAME, OPERATION, REGISTER_ID, USER_ID, IP) ' ||
+                  'VALUES (id_register, ''' || table_name || ''', ''U'', :NEW.' || fieldID || ', :NEW.UPDATE_USER_ID, :NEW.IP); ';
+    
+    -- Recorrer las columnas de la tabla para construir las inserciones en BINNACLE_BODY
+    FOR colum_name IN (SELECT column_name 
+                       FROM all_tab_columns 
+                       WHERE table_name = UPPER(table_name) AND column_name NOT IN ('ID', fieldID))
+    LOOP  
+        query_data := query_data || ' ' ||
+                'IF :OLD.' || colum_name.column_name || ' != :NEW.' || colum_name.column_name || ' THEN ' ||
+                'INSERT INTO BINNACLE_BODY (FIELD, PREVIOUS_VALUE, NEW_VALUE, BINNACLE_HEADER_ID) ' ||
+                'VALUES (''' || colum_name.column_name || ''', :OLD.' || colum_name.column_name || ', :NEW.' || colum_name.column_name || ', id_register); ' ||
+                'END IF; ';             
+    END LOOP;
+    
+    -- Cerrar el bloque del trigger
+    query_data := query_data || 'END;';
+    
+    -- Ejecutar la construcción del trigger
+    EXECUTE IMMEDIATE query_data;
+    DBMS_OUTPUT.PUT_LINE('Trigger bitacora creado para la tabla ' || table_name);
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error al crear el trigger bitacora: ' || SQLERRM);
 END;
+
+
 
 
 CREATE OR REPLACE PROCEDURE pro_config_table (table_name IN varchar2)
@@ -294,4 +332,4 @@ BEGIN
 	pro_config_table('diagnosed_disease');
 	pro_config_table('recommended_medication');
 END;
-
+/
